@@ -15,8 +15,11 @@ main:
   #   url: /talks/    
 
   - title: "Teaching"
-    url: /teaching/    
-    
+    url: /teaching/
+
+  - title: "Tools"
+    url: /tools/mapf-map-editor/
+
   # - title: "Portfolio"
   #   url: /portfolio/
         

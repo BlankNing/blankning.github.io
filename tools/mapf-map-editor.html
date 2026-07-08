@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAPF Grid Map Editor — draw &amp; export Moving AI .map files</title>
+<meta name="description" content="Free browser-based grid map editor for Multi-Agent Path Finding (MAPF). Draw obstacles and terrain, then import and export Moving AI .map benchmark files — entirely in your browser.">
+<meta name="keywords" content="MAPF, multi-agent path finding, grid map editor, Moving AI, .map format, benchmark maps, pathfinding, map generator, obstacle map">
+<meta name="author" content="Ning Zhou">
+<link rel="canonical" href="https://blankning.github.io/tools/mapf-map-editor/">
+<!-- Open Graph / social preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="MAPF Grid Map Editor">
+<meta property="og:description" content="Draw obstacles and terrain, then import and export Moving AI .map benchmark files for Multi-Agent Path Finding — free and browser-based.">
+<meta property="og:url" content="https://blankning.github.io/tools/mapf-map-editor.html">
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#12161c; --panel:#1a2028; --panel-2:#212a34; --line:#2c3742;
+    --ink:#e6edf3; --ink-dim:#8b98a5; --accent:#5ec3ff;
+    --canvas-bg:#0f1318; --grid-line:#232c36; --shadow:rgba(0,0,0,.45);
+    --swatch-border:#2c3742;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  [data-theme="light"]{
+    --bg:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f5; --line:#d6dce4;
+    --ink:#1c2430; --ink-dim:#697588; --accent:#0b76d0;
+    --canvas-bg:#ffffff; --grid-line:#e3e8ef; --shadow:rgba(20,30,45,.14);
+    --swatch-border:#c4ccd6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    display:flex;flex-direction:column;overflow:hidden;font-size:13px;
+    transition:background .2s,color .2s;
+  }
+  header{
+    display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:var(--panel);
+  }
+  header h1{
+    margin:0;font-size:15px;font-weight:600;letter-spacing:.3px;
+    font-family:var(--mono);
+  }
+  header .sub{color:var(--ink-dim);font-size:12px;font-family:var(--mono)}
+  header .spacer{flex:1}
+  .theme-toggle{
+    display:flex;align-items:center;gap:7px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:20px;padding:5px 12px;cursor:pointer;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);transition:.12s;
+  }
+  .theme-toggle:hover{border-color:var(--accent);color:var(--ink)}
+  .wrap{flex:1;display:flex;min-height:0}
+  aside{
+    width:296px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+    overflow-y:auto;
+  }
+  .group{border-bottom:1px solid var(--line);padding:16px 18px}
+  .group h2{
+    margin:0 0 12px;font-size:10.5px;font-weight:600;letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--ink-dim);font-family:var(--mono);
+  }
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .row:last-child{margin-bottom:0}
+  label.f{flex:1;color:var(--ink-dim);font-size:12px}
+  input[type=number],input[type=text],select{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:5px;padding:6px 8px;font-family:var(--mono);font-size:12px;
+    width:100%;outline:none;
+  }
+  input[type=number]{width:72px;flex:none;text-align:right}
+  input:focus,select:focus{border-color:var(--accent)}
+  input.char{width:44px;text-align:center;flex:none}
+  input[type=color]{
+    -webkit-appearance:none;appearance:none;width:30px;height:26px;padding:0;
+    border:1px solid var(--line);border-radius:5px;background:none;cursor:pointer;flex:none;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  input[type=color]::-webkit-color-swatch{border:none;border-radius:3px}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  button{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:5px;padding:7px 10px;font-family:var(--sans);font-size:12px;
+    cursor:pointer;transition:.12s;font-weight:500;
+  }
+  button:hover{background:var(--line)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button.wide{width:100%}
+  button.mini{padding:4px 8px;font-size:11px}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  button.tool{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px}
+  button.tool.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.tool.active .k{color:#fff;opacity:.75}
+  button.tool .k{font-family:var(--mono);font-size:10px;color:var(--ink-dim)}
+  .hint{color:var(--ink-dim);font-size:11px;line-height:1.5;margin-top:6px}
+  main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+  .canvas-bar{
+    display:flex;align-items:center;gap:16px;padding:8px 16px;
+    border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);
+  }
+  .canvas-bar .badge{color:var(--ink)}
+  .canvas-bar .spacer{flex:1}
+  .canvas-stage{flex:1;overflow:auto;position:relative;display:flex;padding:28px}
+  canvas{image-rendering:pixelated;background:var(--canvas-bg);
+    box-shadow:0 0 0 1px var(--line),0 18px 50px var(--shadow);margin:auto;cursor:crosshair}
+  .zoomctl{display:flex;align-items:center;gap:6px}
+  .zoomctl button{padding:4px 9px;font-family:var(--mono)}
+  /* palette */
+  .pal-item{
+    display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);
+    border-radius:6px;margin-bottom:7px;background:var(--panel-2);cursor:pointer;transition:.12s;
+  }
+  .pal-item.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .pal-item .sw{width:18px;height:18px;border-radius:4px;border:1px solid var(--swatch-border);flex:none}
+  .pal-item .nm{flex:1;font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pal-item .ch{font-family:var(--mono);font-size:12px;color:var(--ink-dim);
+    background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 7px}
+  .pal-item .del{color:var(--ink-dim);border:none;background:none;padding:2px 4px;font-size:14px;line-height:1}
+  .pal-item .del:hover{color:#ff6b6b;background:none}
+  .pal-sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.5px;color:var(--ink-dim);
+    margin:10px 0 7px;text-transform:uppercase}
+  .pal-edit{display:flex;gap:6px;align-items:center;margin-bottom:9px}
+  .pal-edit input.nm{flex:1;width:auto}
+  .pal-note{color:#ff6b6b;font-size:11px;font-family:var(--mono);min-height:0;margin-top:-2px;
+    transition:.15s;overflow:hidden}
+  .stat{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;padding:2px 0}
+  .stat span:last-child{color:var(--ink)}
+  .stat .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle;border:1px solid var(--swatch-border)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .seg button{border:none;border-radius:0;flex:1;background:var(--panel-2)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .modal-bg{position:fixed;inset:0;background:rgba(6,9,12,.66);display:none;
+    align-items:center;justify-content:center;z-index:20}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    width:580px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal header{border-bottom:1px solid var(--line)}
+  .modal .body{padding:16px 18px;overflow:auto}
+  .modal .foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  textarea{width:100%;height:230px;background:var(--canvas-bg);border:1px solid var(--line);
+    color:var(--ink);border-radius:6px;font-family:var(--mono);font-size:12px;
+    padding:10px;resize:vertical;outline:none;line-height:1.45}
+  textarea:focus{border-color:var(--accent)}
+  pre.preview{background:var(--canvas-bg);border:1px solid var(--line);border-radius:6px;padding:10px;
+    font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin:0;
+    max-height:180px;overflow:auto;white-space:pre;line-height:1.4}
+  .err{color:#ff6b6b;font-size:11.5px;margin-top:8px;font-family:var(--mono);min-height:14px}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  kbd{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);
+    border-radius:3px;padding:1px 5px;font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>grid_map_editor</h1>
+  <span class="sub">visual .map authoring for multi-agent path finding</span>
+  <span class="spacer"></span>
+  <div class="theme-toggle" id="themeToggle"><span id="themeIcon">☾</span><span id="themeLbl">Dark</span></div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="group">
+      <h2>Dimensions</h2>
+      <div class="row"><label class="f">Width (cols)</label><input type="number" id="w" min="1" max="1024" value="32"></div>
+      <div class="row"><label class="f">Height (rows)</label><input type="number" id="h" min="1" max="1024" value="20"></div>
+      <div class="row"><button class="wide" id="resize">Resize grid</button></div>
+      <div class="hint">Resizing keeps overlapping cells; new area becomes free.</div>
+    </div>
+
+    <div class="group">
+      <h2>Tools</h2>
+      <div class="tools">
+        <button class="tool active" data-tool="paint">Paint<span class="k">B</span></button>
+        <button class="tool" data-tool="erase">Erase<span class="k">E</span></button>
+        <button class="tool" data-tool="rect">Rect fill<span class="k">R</span></button>
+        <button class="tool" data-tool="line">Line<span class="k">L</span></button>
+      </div>
+      <div class="hint">Paint applies the selected terrain below. Erase paints Free.
+        <kbd>Shift</kbd>+drag also erases · right-click erases.</div>
+    </div>
+
+    <div class="group">
+      <h2>Terrain palette</h2>
+      <div id="palList"></div>
+      <div class="pal-sub">Add a new terrain</div>
+      <div class="pal-edit">
+        <input type="text" id="newChar" class="char" maxlength="1" placeholder="T" title="single character used in the .map file">
+        <input type="text" id="newName" class="nm" placeholder="name (e.g. tree)" title="display name">
+        <input type="color" id="newColor" value="#7a5cff" title="fill color">
+      </div>
+      <div class="row"><button class="wide primary" id="addTerrain">+ Add terrain to palette</button></div>
+      <div class="pal-note" id="palNote"></div>
+      <div class="hint">Free and obstacle are built in. Fill in a character, an optional name, and a color, then press <b>Add</b> (or <kbd>Enter</kbd>). New terrains appear above — click one to select it for painting, click its swatch to recolor.</div>
+    </div>
+
+    <div class="group">
+      <h2>Format</h2>
+      <div class="seg" id="fmt">
+        <button data-fmt="movingai" class="on">Moving AI</button>
+        <button data-fmt="plain">Plain grid</button>
+      </div>
+      <div class="row" id="typeRow" style="margin-top:11px">
+        <label class="f">Map type</label>
+        <input type="text" id="mapType" value="octile" style="flex:1;width:auto">
+      </div>
+      <div class="hint" id="fmtHint"></div>
+    </div>
+
+    <div class="group">
+      <h2>Grid actions</h2>
+      <div class="row"><button class="wide" id="clear">Clear to free</button></div>
+      <div class="row"><button class="wide" id="fill">Fill with selected terrain</button></div>
+      <div class="row"><button class="wide" id="border">Toggle border wall</button></div>
+      <div class="row" style="margin-top:4px">
+        <label class="f">Random density</label>
+        <span class="badge" id="densLbl" style="font-family:var(--mono);color:var(--ink)">20%</span>
+      </div>
+      <div class="row"><input type="range" id="dens" min="0" max="100" value="20"></div>
+      <div class="row"><button class="wide" id="random">Random obstacles</button></div>
+      <div class="hint">Randomly sets each free cell to the selected terrain with the given probability. Existing terrain is preserved unless you clear first.</div>
+      <div class="row" style="margin-top:8px;gap:8px">
+        <button style="flex:1" id="undo">Undo <kbd>⌘Z</kbd></button>
+        <button style="flex:1" id="redo">Redo</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Stats</h2>
+      <div id="statList"></div>
+    </div>
+
+    <div class="group">
+      <h2>I/O</h2>
+      <div class="row"><button class="wide primary" id="export">Export .map</button></div>
+      <div class="row"><button class="wide" id="importBtn">Import / paste .map</button></div>
+      <div class="row"><button class="wide" id="savePng">Export PNG preview</button></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="canvas-bar">
+      <span>pos <span class="badge" id="pos">–,–</span></span>
+      <span>size <span class="badge" id="dim">32 × 20</span></span>
+      <span class="spacer"></span>
+      <div class="zoomctl">
+        <span>zoom</span>
+        <button id="zoomOut">−</button>
+        <span class="badge" id="zoomLbl">18px</span>
+        <button id="zoomIn">+</button>
+        <button id="zoomFit">fit</button>
+      </div>
+    </div>
+    <div class="canvas-stage" id="stage"><canvas id="cv"></canvas></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="exportModal">
+  <div class="modal">
+    <header><h1>export .map</h1><span class="sub" id="expName"></span></header>
+    <div class="body">
+      <div class="row" style="margin-bottom:12px">
+        <label class="f">Filename</label>
+        <input type="text" id="fname" value="map.map" style="flex:1;width:auto">
+      </div>
+      <pre class="preview" id="expPreview"></pre>
+    </div>
+    <div class="foot">
+      <button id="expCopy">Copy to clipboard</button>
+      <button class="primary" id="expDownload">Download</button>
+      <button id="expClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="importModal">
+  <div class="modal">
+    <header><h1>import .map</h1><span class="sub">paste text or load a file</span></header>
+    <div class="body">
+      <div class="row" style="margin-bottom:10px"><input type="file" id="fileIn" accept=".map,.txt,text/plain"></div>
+      <textarea id="importText" placeholder="type octile&#10;height 20&#10;width 32&#10;map&#10;.................@@@.............."></textarea>
+      <div class="hint">Recognized terrain chars are matched to your palette; any unknown non-free char is treated as obstacle.</div>
+      <div class="err" id="importErr"></div>
+    </div>
+    <div class="foot">
+      <button class="primary" id="doImport">Load into editor</button>
+      <button id="impClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+
+  // ---- palette: ordered list of terrain types ----
+  // id 0 is always Free, id 1 is always Obstacle. Extra terrains get ids 2+.
+  let palette = [
+    { name:"Free",     char:".", color:"#0f1318", builtin:true },
+    { name:"Obstacle", char:"@", color:"#3a4552", builtin:true },
+  ];
+  let selected = 1; // currently selected terrain id for painting
+
+  // ---- grid state ----
+  let W = 32, H = 20, cell = 18;
+  let grid = new Uint8Array(W*H); // stores palette index
+  let tool = "paint", fmt = "movingai";
+  const undoStack = [], redoStack = [], MAX_UNDO = 60;
+
+  const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
+  const idx = (x,y) => y*W + x;
+
+  // ---- theme ----
+  function setTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    $("themeIcon").textContent = t==="dark" ? "☾" : "☀";
+    $("themeLbl").textContent = t==="dark" ? "Dark" : "Light";
+    // free-cell color follows canvas bg so it blends; only if user hasn't customized free
+    draw();
+  }
+  $("themeToggle").addEventListener("click", ()=>{
+    const cur=document.documentElement.getAttribute("data-theme");
+    setTheme(cur==="dark"?"light":"dark");
+  });
+
+  function cssVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // ---- rendering ----
+  function fitCanvas(){ cv.width=W*cell; cv.height=H*cell; draw(); }
+  function draw(ghost){
+    const freeColor = palette[0].color === "#0f1318" ? cssVar("--canvas-bg") : palette[0].color;
+    ctx.fillStyle = freeColor;
+    ctx.fillRect(0,0,cv.width,cv.height);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const v=grid[idx(x,y)];
+      if(v!==0 && palette[v]){ ctx.fillStyle=palette[v].color; ctx.fillRect(x*cell,y*cell,cell,cell); }
+    }
+    if(cell>=6){
+      ctx.strokeStyle=cssVar("--grid-line"); ctx.lineWidth=1; ctx.beginPath();
+      for(let x=0;x<=W;x++){ ctx.moveTo(x*cell+.5,0); ctx.lineTo(x*cell+.5,H*cell); }
+      for(let y=0;y<=H;y++){ ctx.moveTo(0,y*cell+.5); ctx.lineTo(W*cell,y*cell+.5); }
+      ctx.stroke();
+    }
+    if(ghost){
+      const gc = ghost.val===0 ? "rgba(255,107,107,.4)" :
+        hexToRgba(palette[ghost.val]?palette[ghost.val].color:"#5ec3ff", .45);
+      ctx.fillStyle=gc;
+      for(const [x,y] of ghost.cells) if(x>=0&&x<W&&y>=0&&y<H) ctx.fillRect(x*cell,y*cell,cell,cell);
+    }
+    updateStats();
+  }
+  function hexToRgba(hex,a){
+    const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/./g,c=>c+c):h,16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  }
+
+  // ---- stats ----
+  function updateStats(){
+    const counts=new Array(palette.length).fill(0);
+    for(let i=0;i<grid.length;i++) counts[grid[i]]++;
+    const total=W*H, nonFree=total-counts[0];
+    let html=`<div class="stat"><span>Cells</span><span>${total.toLocaleString()}</span></div>`;
+    palette.forEach((p,i)=>{
+      const pct = total? (100*counts[i]/total).toFixed(1)+"%" : "0%";
+      html+=`<div class="stat"><span><span class="dot" style="background:${i===0?cssVar('--canvas-bg'):p.color}"></span>${p.name}</span><span>${counts[i].toLocaleString()} · ${pct}</span></div>`;
+    });
+    html+=`<div class="stat" style="border-top:1px solid var(--line);margin-top:4px;padding-top:5px"><span>Blocked density</span><span>${total?(100*nonFree/total).toFixed(1)+"%":"—"}</span></div>`;
+    $("statList").innerHTML=html;
+    $("dim").textContent=W+" × "+H;
+    $("zoomLbl").textContent=cell+"px";
+  }
+
+  // ---- palette UI ----
+  function renderPalette(){
+    let html="";
+    palette.forEach((p,i)=>{
+      const swColor = i===0 ? cssVar("--canvas-bg") : p.color;
+      html+=`<div class="pal-item ${i===selected?'sel':''}" data-id="${i}">
+        <span class="sw" style="background:${swColor}"></span>
+        <span class="nm">${escapeHtml(p.name)}</span>
+        <span class="ch">${escapeHtml(p.char)}</span>
+        ${p.builtin?'':`<button class="del" data-del="${i}" title="remove">×</button>`}
+      </div>`;
+    });
+    $("palList").innerHTML=html;
+    // click to select
+    $("palList").querySelectorAll(".pal-item").forEach(el=>{
+      el.addEventListener("click", e=>{
+        if(e.target.dataset.del!==undefined) return;
+        selected=parseInt(el.dataset.id); renderPalette();
+      });
+    });
+    // recolor by clicking swatch (open hidden color input)
+    $("palList").querySelectorAll(".pal-item .sw").forEach((sw,i)=>{
+      sw.addEventListener("click", e=>{
+        e.stopPropagation();
+        const item=palette[i]; if(i===0){ selected=0; renderPalette(); return; }
+        const inp=document.createElement("input"); inp.type="color"; inp.value=item.color;
+        inp.style.position="fixed"; inp.style.opacity="0"; document.body.appendChild(inp);
+        inp.addEventListener("input", ()=>{ item.color=inp.value; renderPalette(); draw(); });
+        inp.addEventListener("change", ()=>inp.remove());
+        inp.click();
+      });
+    });
+    // delete
+    $("palList").querySelectorAll("[data-del]").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        removeTerrain(parseInt(btn.dataset.del));
+      });
+    });
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+  function addTerrain(){
+    const ch=($("newChar").value||"").slice(0,1);
+    const name=($("newName").value||"").trim();
+    const color=$("newColor").value;
+    if(!ch){ flash($("newChar")); note("Enter a character first (e.g. T)."); return; }
+    if(palette.some(p=>p.char===ch)){ flash($("newChar")); note(`Character "${ch}" is already used.`); return; }
+    palette.push({name:name||("Terrain "+ch), char:ch, color, builtin:false});
+    selected=palette.length-1;
+    $("newChar").value=""; $("newName").value=""; note("");
+    renderPalette(); draw();
+  }
+  function removeTerrain(id){
+    if(palette[id].builtin) return;
+    snapshot();
+    // remap: any cell of this terrain → free; shift indices above down
+    for(let i=0;i<grid.length;i++){
+      if(grid[i]===id) grid[i]=0;
+      else if(grid[i]>id) grid[i]--;
+    }
+    palette.splice(id,1);
+    if(selected===id) selected=1;
+    else if(selected>id) selected--;
+    renderPalette(); draw();
+  }
+  function flash(el){ el.style.borderColor="#ff6b6b"; setTimeout(()=>el.style.borderColor="",600); }
+  function note(msg){ const n=$("palNote"); n.textContent=msg; if(msg) setTimeout(()=>{ if(n.textContent===msg) n.textContent=""; },2600); }
+  $("addTerrain").addEventListener("click", addTerrain);
+  $("newName").addEventListener("keydown", e=>{ if(e.key==="Enter") addTerrain(); });
+  $("newChar").addEventListener("keydown", e=>{ if(e.key==="Enter") addTerrain(); });
+
+  // ---- undo ----
+  function snapshot(){ undoStack.push(grid.slice()); if(undoStack.length>MAX_UNDO) undoStack.shift(); redoStack.length=0; }
+  function undo(){ if(!undoStack.length) return; redoStack.push(grid.slice()); grid=undoStack.pop(); draw(); }
+  function redo(){ if(!redoStack.length) return; undoStack.push(grid.slice()); grid=redoStack.pop(); draw(); }
+
+  // ---- pointer / painting ----
+  function cellAt(e){ const r=cv.getBoundingClientRect();
+    return [Math.floor((e.clientX-r.left)/cell), Math.floor((e.clientY-r.top)/cell)]; }
+  function setCell(x,y,v){ if(x<0||x>=W||y<0||y>=H||grid[idx(x,y)]===v) return false; grid[idx(x,y)]=v; return true; }
+  function lineCells(x0,y0,x1,y1){ const out=[]; let dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,err=dx-dy;
+    while(true){ out.push([x0,y0]); if(x0===x1&&y0===y1) break; const e2=2*err; if(e2>-dy){err-=dy;x0+=sx;} if(e2<dx){err+=dx;y0+=sy;} } return out; }
+  function rectCells(x0,y0,x1,y1){ const out=[],xa=Math.min(x0,x1),xb=Math.max(x0,x1),ya=Math.min(y0,y1),yb=Math.max(y0,y1);
+    for(let y=ya;y<=yb;y++) for(let x=xa;x<=xb;x++) out.push([x,y]); return out; }
+
+  let drawing=false,startCell=null,lastCell=null,paintVal=1,dirty=false;
+  function beginStroke(e){
+    const [x,y]=cellAt(e);
+    paintVal = (tool==="erase"||e.button===2||e.shiftKey) ? 0 : selected;
+    snapshot(); dirty=false; drawing=true; startCell=[x,y]; lastCell=[x,y];
+    if(tool==="paint"||tool==="erase"){ if(setCell(x,y,paintVal)) dirty=true; draw(); } else draw();
+  }
+  function moveStroke(e){
+    const [x,y]=cellAt(e);
+    $("pos").textContent=(x>=0&&x<W&&y>=0&&y<H)?x+","+y:"–,–";
+    if(!drawing) return;
+    if(tool==="paint"||tool==="erase"){
+      const [lx,ly]=lastCell;
+      for(const [cx,cy] of lineCells(lx,ly,x,y)) if(setCell(cx,cy,paintVal)) dirty=true;
+      lastCell=[x,y]; draw();
+    } else if(tool==="rect"){ draw({cells:rectCells(startCell[0],startCell[1],x,y),val:paintVal}); }
+    else if(tool==="line"){ draw({cells:lineCells(startCell[0],startCell[1],x,y),val:paintVal}); }
+  }
+  function endStroke(e){
+    if(!drawing) return;
+    const [x,y]=cellAt(e);
+    if(tool==="rect"||tool==="line"){
+      const cells = tool==="rect"?rectCells(startCell[0],startCell[1],x,y):lineCells(startCell[0],startCell[1],x,y);
+      for(const [cx,cy] of cells) if(setCell(cx,cy,paintVal)) dirty=true;
+    }
+    drawing=false; if(!dirty) undoStack.pop(); draw();
+  }
+  cv.addEventListener("mousedown", e=>{ e.preventDefault(); beginStroke(e); });
+  cv.addEventListener("mousemove", moveStroke);
+  window.addEventListener("mouseup", endStroke);
+  cv.addEventListener("mouseleave", ()=>$("pos").textContent="–,–");
+  cv.addEventListener("contextmenu", e=>e.preventDefault());
+
+  // ---- tools ----
+  document.querySelectorAll(".tool").forEach(b=>b.addEventListener("click", ()=>{
+    document.querySelectorAll(".tool").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); tool=b.dataset.tool;
+  }));
+
+  // ---- format ----
+  function refreshFmtHint(){
+    const t=$("mapType").value||"octile";
+    $("typeRow").style.display=fmt==="movingai"?"flex":"none";
+    $("fmtHint").innerHTML=fmt==="movingai"
+      ? `Header: <b>type ${t}</b> / height / width / map, then the grid.`
+      : `Raw grid only — rows of terrain characters, no header.`;
+  }
+  document.querySelectorAll("#fmt button").forEach(b=>b.addEventListener("click", ()=>{
+    document.querySelectorAll("#fmt button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); fmt=b.dataset.fmt; refreshFmtHint();
+  }));
+  $("mapType").addEventListener("input", refreshFmtHint);
+
+  // ---- resize ----
+  $("resize").addEventListener("click", ()=>{
+    const nw=Math.max(1,Math.min(1024,parseInt($("w").value)||1));
+    const nh=Math.max(1,Math.min(1024,parseInt($("h").value)||1));
+    if(nw===W&&nh===H) return;
+    snapshot();
+    const ng=new Uint8Array(nw*nh);
+    for(let y=0;y<Math.min(nh,H);y++) for(let x=0;x<Math.min(nw,W);x++) ng[y*nw+x]=grid[y*W+x];
+    W=nw; H=nh; grid=ng; fitToScreen();
+  });
+
+  // ---- grid actions ----
+  $("clear").addEventListener("click", ()=>{ snapshot(); grid.fill(0); draw(); });
+  $("fill").addEventListener("click", ()=>{ snapshot(); grid.fill(selected); draw(); });
+  $("border").addEventListener("click", ()=>{
+    snapshot();
+    let allWall=true;
+    for(let x=0;x<W;x++){ if(!grid[idx(x,0)]||!grid[idx(x,H-1)]) allWall=false; }
+    for(let y=0;y<H;y++){ if(!grid[idx(0,y)]||!grid[idx(W-1,y)]) allWall=false; }
+    const v=allWall?0:selected;
+    for(let x=0;x<W;x++){ grid[idx(x,0)]=v; grid[idx(x,H-1)]=v; }
+    for(let y=0;y<H;y++){ grid[idx(0,y)]=v; grid[idx(W-1,y)]=v; }
+    draw();
+  });
+  $("dens").addEventListener("input", ()=>$("densLbl").textContent=$("dens").value+"%");
+  $("random").addEventListener("click", ()=>{
+    snapshot();
+    const p=parseInt($("dens").value)/100;
+    const v=selected===0?1:selected; // if Free selected, default to obstacle
+    // clear the map first, then scatter fresh obstacles
+    for(let i=0;i<grid.length;i++){ grid[i] = Math.random()<p ? v : 0; }
+    draw();
+  });
+  $("undo").addEventListener("click", undo);
+  $("redo").addEventListener("click", redo);
+
+  // ---- zoom ----
+  function setZoom(px){ cell=Math.max(2,Math.min(48,px)); fitCanvas(); }
+  $("zoomIn").addEventListener("click", ()=>setZoom(cell+2));
+  $("zoomOut").addEventListener("click", ()=>setZoom(cell-2));
+  $("zoomFit").addEventListener("click", fitToScreen);
+  function fitToScreen(){ const pad=64,availW=stage.clientWidth-pad,availH=stage.clientHeight-pad;
+    const px=Math.floor(Math.min(availW/W,availH/H)); cell=Math.max(2,Math.min(48,px||18)); fitCanvas(); }
+
+  // ---- serialize ----
+  function toText(){
+    let rows=[];
+    for(let y=0;y<H;y++){ let s=""; for(let x=0;x<W;x++){ const v=grid[idx(x,y)]; s+=palette[v]?palette[v].char:palette[1].char; } rows.push(s); }
+    if(fmt==="movingai"){ const t=$("mapType").value||"octile"; return `type ${t}\nheight ${H}\nwidth ${W}\nmap\n`+rows.join("\n")+"\n"; }
+    return rows.join("\n")+"\n";
+  }
+
+  // ---- export ----
+  $("export").addEventListener("click", ()=>{
+    $("expPreview").textContent=toText();
+    $("expName").textContent=fmt==="movingai"?"Moving AI Lab format":"plain grid";
+    $("exportModal").classList.add("show");
+  });
+  $("expClose").addEventListener("click", ()=>$("exportModal").classList.remove("show"));
+  $("expDownload").addEventListener("click", ()=>{
+    const blob=new Blob([toText()],{type:"text/plain"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=$("fname").value||"map.map"; a.click(); URL.revokeObjectURL(a.href);
+  });
+  $("expCopy").addEventListener("click", async ()=>{
+    try{ await navigator.clipboard.writeText(toText());
+      const b=$("expCopy"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy to clipboard",1200);
+    }catch(_){}
+  });
+
+  // ---- PNG ----
+  $("savePng").addEventListener("click", ()=>cv.toBlob(b=>{
+    const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="map-preview.png"; a.click(); URL.revokeObjectURL(a.href);
+  }));
+
+  // ---- import ----
+  $("importBtn").addEventListener("click", ()=>{ $("importErr").textContent=""; $("importModal").classList.add("show"); });
+  $("impClose").addEventListener("click", ()=>$("importModal").classList.remove("show"));
+  $("fileIn").addEventListener("change", e=>{ const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=()=>$("importText").value=r.result; r.readAsText(f); });
+  $("doImport").addEventListener("click", ()=>{
+    try{
+      const p=parseMap($("importText").value);
+      snapshot(); W=p.w; H=p.h; grid=p.grid;
+      $("w").value=W; $("h").value=H;
+      if(p.type) $("mapType").value=p.type;
+      if(p.movingai){ fmt="movingai"; document.querySelectorAll("#fmt button").forEach(x=>x.classList.toggle("on",x.dataset.fmt==="movingai")); }
+      renderPalette(); refreshFmtHint(); $("importModal").classList.remove("show"); fitToScreen();
+    }catch(err){ $("importErr").textContent="Parse error: "+err.message; }
+  });
+  function parseMap(text){
+    let lines=text.replace(/\r/g,"").split("\n");
+    let type=null,hdrH=null,hdrW=null,movingai=false,start=0;
+    const low=lines.map(l=>l.trim().toLowerCase());
+    const mi=low.findIndex(l=>l==="map");
+    if(mi!==-1 && lines.slice(0,mi).some(l=>/^(type|height|width)\b/i.test(l.trim()))){
+      movingai=true;
+      for(let i=0;i<mi;i++){ const pp=lines[i].trim().split(/\s+/);
+        if(/^type$/i.test(pp[0])) type=pp[1];
+        else if(/^height$/i.test(pp[0])) hdrH=parseInt(pp[1]);
+        else if(/^width$/i.test(pp[0])) hdrW=parseInt(pp[1]); }
+      start=mi+1;
+    }
+    let rows=lines.slice(start);
+    while(rows.length && rows[rows.length-1]==="") rows.pop();
+    if(!rows.length) throw new Error("no grid rows found");
+    const width=movingai&&hdrW?hdrW:Math.max(...rows.map(r=>r.length));
+    const height=movingai&&hdrH?hdrH:rows.length;
+    if(height>1024||width>1024) throw new Error("map exceeds 1024×1024");
+    // build char→id map from palette; standard passables map to Free
+    const charMap={}; palette.forEach((p,i)=>{ charMap[p.char]=i; });
+    ["G","S"].forEach(c=>{ if(!(c in charMap)) charMap[c]=0; }); // Moving AI passables
+    const g=new Uint8Array(width*height);
+    for(let y=0;y<height;y++){ const row=rows[y]||"";
+      for(let x=0;x<width;x++){ const ch=row[x]??palette[0].char;
+        g[y*width+x] = (ch in charMap) ? charMap[ch] : 1; // unknown → obstacle
+      } }
+    return {w:width,h:height,grid:g,type,movingai};
+  }
+
+  // ---- keyboard ----
+  window.addEventListener("keydown", e=>{
+    if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
+    const k=e.key.toLowerCase();
+    if((e.metaKey||e.ctrlKey)&&k==="z"){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
+    if((e.metaKey||e.ctrlKey)&&k==="y"){ e.preventDefault(); redo(); return; }
+    const m={b:"paint",e:"erase",r:"rect",l:"line"};
+    if(m[k]){ tool=m[k]; document.querySelectorAll(".tool").forEach(x=>x.classList.toggle("active",x.dataset.tool===tool)); }
+    if(k==="="||k==="+") setZoom(cell+2);
+    if(k==="-") setZoom(cell-2);
+  });
+
+  // ---- init ----
+  renderPalette(); refreshFmtHint(); setTheme("light"); fitToScreen();
+})();
+</script>
+</body>
+</html>
